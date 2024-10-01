@@ -1,9 +1,8 @@
 const jwt = require('jsonwebtoken');
 const {
   DynamoDBClient,
-  GetCommand,
 } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocument } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocument, GetCommand } = require('@aws-sdk/lib-dynamodb'); // Import GetCommand here
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -37,7 +36,7 @@ const authenticateJWT = async (req, res, next) => {
         Key: { email: userEmail },
       };
 
-      const result = await dynamoDB.send(new GetCommand(params));
+      const result = await dynamoDB.send(new GetCommand(params)); // Use GetCommand here
 
       // If the email is not found, send a 403 Forbidden status
       if (!result.Item) {
