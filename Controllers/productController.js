@@ -2,8 +2,15 @@ require("dotenv").config();
 
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, UpdateCommand, DeleteCommand, GetCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
-const dynamoDB = require('../Models/contact'); // Ensure this is correctly pointing to your DynamoDB model
+const {
+  DynamoDBDocumentClient,
+  PutCommand,
+  UpdateCommand,
+  DeleteCommand,
+  GetCommand,
+  ScanCommand,
+} = require('@aws-sdk/lib-dynamodb');
+const dynamoDB = require('../Models/contact'); 
 
 // Initialize S3 and DynamoDB clients
 const s3 = new S3Client({
@@ -61,7 +68,14 @@ const generateRandomNumber = () => Math.floor(10000 + Math.random() * 90000).toS
 // Create product with image upload
 const createProduct = async (req, res) => {
   try {
-    const { plantName, plantSmallDescription, plantPrice, plantLongDescription, plantDescriptionForCard, category } = req.body;
+    const {
+      plantName,
+      plantSmallDescription,
+      plantPrice,
+      plantLongDescription,
+      plantDescriptionForCard,
+      category,
+    } = req.body;
     const Pno = generateRandomNumber();
 
     const imageUrls = await uploadImages(req.files);
@@ -81,10 +95,10 @@ const createProduct = async (req, res) => {
     };
 
     await dynamoDBDocumentClient.send(new PutCommand(params));
-    res.status(201).json({ message: 'Product created successfully', product: params.Item });
+    res.status(201).json({ message: "Product created successfully", product: params.Item });
   } catch (error) {
-    console.error('Error creating product:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error creating product:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -92,26 +106,33 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
   try {
     const { Pno } = req.params;
-    const { plantName, plantSmallDescription, plantPrice, plantLongDescription, plantDescriptionForCard, category } = req.body;
+    const {
+      plantName,
+      plantSmallDescription,
+      plantPrice,
+      plantLongDescription,
+      plantDescriptionForCard,
+      category,
+    } = req.body;
 
     let imageUrls = [];
     if (req.files && req.files.length > 0) {
       imageUrls = await uploadImages(req.files);
     }
 
-    let updateExpression = 'set plantName = :n, plantSmallDescription = :sd, plantPrice = :p, plantLongDescription = :ld, plantDescriptionForCard = :dc, category = :cat';
+    let updateExpression = "set plantName = :n, plantSmallDescription = :sd, plantPrice = :p, plantLongDescription = :ld, plantDescriptionForCard = :dc, category = :cat";
     const expressionAttributeValues = {
-      ':n': plantName,
-      ':sd': plantSmallDescription,
-      ':p': plantPrice,
-      ':ld': plantLongDescription,
-      ':dc': plantDescriptionForCard,
-      ':cat': category,
+      ":n": plantName,
+      ":sd": plantSmallDescription,
+      ":p": plantPrice,
+      ":ld": plantLongDescription,
+      ":dc": plantDescriptionForCard,
+      ":cat": category,
     };
 
     if (imageUrls.length > 0) {
-      updateExpression += ', images = :img';
-      expressionAttributeValues[':img'] = imageUrls;
+      updateExpression += ", images = :img";
+      expressionAttributeValues[":img"] = imageUrls;
     }
 
     const params = {
@@ -119,14 +140,14 @@ const updateProduct = async (req, res) => {
       Key: { Pno },
       UpdateExpression: updateExpression,
       ExpressionAttributeValues: expressionAttributeValues,
-      ReturnValues: 'UPDATED_NEW',
+      ReturnValues: "UPDATED_NEW",
     };
 
     const data = await dynamoDBDocumentClient.send(new UpdateCommand(params));
-    res.status(200).json({ message: 'Product updated successfully', updatedProduct: data.Attributes });
+    res.status(200).json({ message: "Product updated successfully", updatedProduct: data.Attributes });
   } catch (error) {
-    console.error('Error updating product:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error updating product:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -164,13 +185,13 @@ const getProductByPno = async (req, res) => {
     const data = await dynamoDBDocumentClient.send(new GetCommand(params));
 
     if (!data.Item) {
-      return res.status(404).json({ error: 'Product not found' });
+      return res.status(404).json({ error: "Product not found" });
     }
 
     res.status(200).json(data.Item);
   } catch (error) {
-    console.error('Error fetching product:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error fetching product:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -181,20 +202,20 @@ const getProductByName = async (req, res) => {
 
     const params = {
       TableName: process.env.DYNAMODB_TABLE_NAME_PRODUCTS,
-      FilterExpression: 'begins_with(plantName, :name)',
-      ExpressionAttributeValues: { ':name': plantName },
+      FilterExpression: "begins_with(plantName, :name)",
+      ExpressionAttributeValues: { ":name": plantName },
     };
 
     const data = await dynamoDBDocumentClient.send(new ScanCommand(params));
 
     if (data.Items.length === 0) {
-      return res.status(404).json({ error: 'Product not found' });
+      return res.status(404).json({ error: "Product not found" });
     }
 
     res.status(200).json(data.Items);
   } catch (error) {
-    console.error('Error fetching product:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error fetching product:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -209,11 +230,18 @@ const deleteProduct = async (req, res) => {
     };
 
     await dynamoDBDocumentClient.send(new DeleteCommand(params));
-    res.status(200).json({ message: 'Product deleted successfully' });
+    res.status(200).json({ message: "Product deleted successfully" });
   } catch (error) {
-    console.error('Error deleting product:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error deleting product:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
-module.exports = { createProduct, getAllProducts, getProductByPno, getProductByName, updateProduct, deleteProduct };
+module.exports = {
+  createProduct,
+  getAllProducts,
+  getProductByPno,
+  getProductByName,
+  updateProduct,
+  deleteProduct,
+};

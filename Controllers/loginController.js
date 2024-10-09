@@ -1,9 +1,12 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const dynamoDB = require('../Models/contact');
-const { v4: uuidv4 } = require('uuid');  // Import DynamoDB model
+const { DynamoDBClient, PutItemCommand, GetItemCommand } = require('@aws-sdk/client-dynamodb');
+const { v4: uuidv4 } = require('uuid');
 const dotenv = require('dotenv');
 dotenv.config();
+
+// Initialize DynamoDB client
+const dynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
 async function signup(req, res) {
   try {
@@ -24,14 +27,13 @@ async function signup(req, res) {
     const params = {
       TableName: process.env.DYNAMODB_TABLE_NAME_USERS,
       Item: {
-        email,
-        password: hashedPassword,
-        unoNumber, // Store the generated Uno number with the user's details
+        email: { S: email },  // DynamoDB requires specifying the data type (S for string)
+        password: { S: hashedPassword },
+        unoNumber: { S: unoNumber },
       }
     };
-    await // The `.promise()` call might be on an JS SDK v2 client API.
-    // If yes, please remove .promise(). If not, remove this comment.
-    dynamoDB.put(params).promise();
+    // Use the v3 client to send the PutItemCommand
+    await dynamoDBClient.send(new PutItemCommand(params));
 
     res.status(201).json({ message: "User registered successfully", unoNumber });
   } catch (error) {
@@ -39,7 +41,6 @@ async function signup(req, res) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 }
-
 
 async function login(req, res) {
   try {
@@ -52,19 +53,22 @@ async function login(req, res) {
     }
 
     // Check the password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.password.S);
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     // Generate JWT token
-    const token = jwt.sign({ email: user.email }, process.env.JWT_SECRET);
+    const token = jwt.sign(
+      { email: user.email.S },
+      process.env.JWT_SECRET,
+      { expiresIn: '1m' } // token expires in 1 minute
+    );
 
-    // Include a success message in the response
     res.json({
-      message: "Login successful", // Success message
+      message: "Login successful",
       token,
-      email: user.email,
+      email: user.email.S,
     });
   } catch (error) {
     console.error('Error logging in:', error);
@@ -72,18 +76,17 @@ async function login(req, res) {
   }
 }
 
-
 // Helper function to get user by email from DynamoDB
 async function getUserByEmail(email) {
   const params = {
     TableName: process.env.DYNAMODB_TABLE_NAME_USERS,
     Key: {
-      email,
+      email: { S: email },
     }
   };
-  const data = await // The `.promise()` call might be on an JS SDK v2 client API.
-  // If yes, please remove .promise(). If not, remove this comment.
-  dynamoDB.get(params).promise();
+  
+  // Use the v3 client to send the GetItemCommand
+  const data = await dynamoDBClient.send(new GetItemCommand(params));
   return data.Item;
 }
 

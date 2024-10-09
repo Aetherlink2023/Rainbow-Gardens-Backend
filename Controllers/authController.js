@@ -1,25 +1,14 @@
-const AWS = require('aws-sdk');
-
-const {
-  DynamoDBDocument,
-} = require('@aws-sdk/lib-dynamodb');
-
-const {
-  DynamoDB,
-} = require('@aws-sdk/client-dynamodb');
-
-const dynamoDB = DynamoDBDocument.from(new DynamoDB());
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcrypt');
+const dotenv = require('dotenv');
 
-// JS SDK v3 does not support global configuration.
-// Codemod has attempted to pass values to each service client in this file.
-// You may need to update clients outside of this file, if they use global config.
-AWS.config.update({
-  region: process.env.AWS_REGION,
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-});
+dotenv.config();
+
+// Initialize DynamoDB client
+const dynamoDBClient = new DynamoDBClient({ region: process.env.AWS_REGION });
+const dynamoDB = DynamoDBDocumentClient.from(dynamoDBClient);
 
 const generateRandomCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -40,7 +29,7 @@ const sendVerificationCode = async (email) => {
     from: process.env.EMAIL_USERNAME,
     to: email,
     subject: 'Password Reset Verification Code',
-    text: `Your password reset verification code is: ${code}`,
+    text: `Your password reset verification code is: ${code} , Expires in 10 minutes`,
   };
 
   await transporter.sendMail(mailOptions);
@@ -53,11 +42,11 @@ const storeResetCode = async (email, resetCode) => {
     Item: {
       email: email,
       resetCode: resetCode,
-      expirationTime: Math.floor(Date.now() / 1000) + 600 // 10 minutes expiration
+      expirationTime: Math.floor(Date.now() / 1000) + 600, // 10 minutes expiration
     },
   };
 
-  await dynamoDB.put(params);
+  await dynamoDB.send(new PutCommand(params));
 };
 
 const verifyResetCode = async (email, providedCode) => {
@@ -68,7 +57,7 @@ const verifyResetCode = async (email, providedCode) => {
     },
   };
 
-  const result = await dynamoDB.get(params);
+  const result = await dynamoDB.send(new GetCommand(params));
   const storedData = result.Item;
 
   if (!storedData || storedData.resetCode !== providedCode) {
@@ -90,7 +79,7 @@ const getUserByEmail = async (email) => {
     },
   };
 
-  const result = await dynamoDB.get(params);
+  const result = await dynamoDB.send(new GetCommand(params));
   return result.Item;
 };
 
@@ -126,24 +115,20 @@ const resetPassword = async (req, res) => {
 
     const params = {
       TableName: process.env.DYNAMODB_TABLE_NAME_USERS,
-      Key: {
-        email,
-      },
+      Key: { email },
       UpdateExpression: "set password = :password",
       ExpressionAttributeValues: {
         ":password": hashedPassword,
       },
     };
-    await dynamoDB.update(params);
+    await dynamoDB.send(new UpdateCommand(params));
 
     // Remove the reset code from the auth table
     const deleteParams = {
       TableName: process.env.DYNAMODB_TABLE_NAME_AUTH,
-      Key: {
-        email,
-      },
+      Key: { email },
     };
-    await dynamoDB.delete(deleteParams);
+    await dynamoDB.send(new DeleteCommand(deleteParams));
 
     res.json({ message: "Password updated successfully" });
   } catch (error) {

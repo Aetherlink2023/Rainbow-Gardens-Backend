@@ -1,28 +1,22 @@
 const jwt = require('jsonwebtoken');
-const AWS = require('aws-sdk');
-
 const {
-  DynamoDBDocument,
-} = require('@aws-sdk/lib-dynamodb');
-
-const {
-  DynamoDB,
+  DynamoDBClient,
 } = require('@aws-sdk/client-dynamodb');
-
+const { DynamoDBDocument, GetCommand } = require('@aws-sdk/lib-dynamodb'); // Import GetCommand here
 const dotenv = require('dotenv');
+
 dotenv.config();
 
 // AWS SDK Configuration
-// JS SDK v3 does not support global configuration.
-// Codemod has attempted to pass values to each service client in this file.
-// You may need to update clients outside of this file, if they use global config.
-AWS.config.update({
+const dynamoDBClient = new DynamoDBClient({
   region: process.env.AWS_REGION,
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
 });
 
-const dynamoDB = DynamoDBDocument.from(new DynamoDB());
+const dynamoDB = DynamoDBDocument.from(dynamoDBClient);
 const AUTH_TABLE_NAME = process.env.DYNAMODB_TABLE_NAME_USERS;
 
 const authenticateJWT = async (req, res, next) => {
@@ -42,7 +36,7 @@ const authenticateJWT = async (req, res, next) => {
         Key: { email: userEmail },
       };
 
-      const result = await dynamoDB.get(params);
+      const result = await dynamoDB.send(new GetCommand(params)); // Use GetCommand here
 
       // If the email is not found, send a 403 Forbidden status
       if (!result.Item) {
