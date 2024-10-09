@@ -1,8 +1,6 @@
 const jwt = require('jsonwebtoken');
-const {
-  DynamoDBClient,
-} = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocument, GetCommand } = require('@aws-sdk/lib-dynamodb'); // Import GetCommand here
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocument, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -36,7 +34,7 @@ const authenticateJWT = async (req, res, next) => {
         Key: { email: userEmail },
       };
 
-      const result = await dynamoDB.send(new GetCommand(params)); // Use GetCommand here
+      const result = await dynamoDB.send(new GetCommand(params));
 
       // If the email is not found, send a 403 Forbidden status
       if (!result.Item) {
@@ -47,12 +45,16 @@ const authenticateJWT = async (req, res, next) => {
       req.user = decoded;
       next();
     } catch (err) {
-      // Handle any errors, including token verification errors
-      console.error('Error verifying token or checking database:', err);
-      res.sendStatus(403); // Forbidden
+      if (err.name === 'TokenExpiredError') {
+        console.error('Token expired:', err);
+        return res.status(401).json({ message: 'Token expired' });
+      } else {
+        console.error('Error verifying token or checking database:', err);
+        return res.sendStatus(403); // Forbidden
+      }
     }
   } else {
-    res.sendStatus(401); // Unauthorized
+    return res.sendStatus(401); // Unauthorized
   }
 };
 
