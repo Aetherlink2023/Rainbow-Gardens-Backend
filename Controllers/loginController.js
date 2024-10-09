@@ -62,7 +62,7 @@ async function login(req, res) {
     const token = jwt.sign(
       { email: user.email.S },
       process.env.JWT_SECRET,
-      { expiresIn: '1m' } // token expires in 1 minute
+      { expiresIn: '1d' } // token expires in 1 day
     );
 
     res.json({
