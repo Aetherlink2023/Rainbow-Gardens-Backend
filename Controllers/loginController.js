@@ -59,7 +59,11 @@ async function login(req, res) {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ email: user.email.S }, process.env.JWT_SECRET);
+    const token = jwt.sign(
+      { email: user.email.S },
+      process.env.JWT_SECRET,
+      { expiresIn: '1m' } // token expires in 1 minute
+    );
 
     res.json({
       message: "Login successful",
